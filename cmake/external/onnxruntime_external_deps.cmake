@@ -211,37 +211,51 @@ else()
  set(ONNXRUNTIME_PROTOBUF_PATCH_COMMAND "")
 endif()
 
-#Protobuf depends on absl and utf8_range
-FetchContent_Declare(
-  Protobuf
-  URL ${DEP_URL_protobuf}
-  URL_HASH SHA1=${DEP_SHA1_protobuf}
-  PATCH_COMMAND ${ONNXRUNTIME_PROTOBUF_PATCH_COMMAND}
-  FIND_PACKAGE_ARGS NAMES Protobuf protobuf
-)
-
-set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build protobuf tests" FORCE)
-#TODO: we'd better to turn the following option off. However, it will cause
-# ".\build.bat --config Debug --parallel --skip_submodule_sync --update" fail with an error message:
-# install(EXPORT "ONNXTargets" ...) includes target "onnx_proto" which requires target "libprotobuf-lite" that is
-# not in any export set.
-#set(protobuf_INSTALL OFF CACHE BOOL "Install protobuf binaries and files" FORCE)
-set(protobuf_USE_EXTERNAL_GTEST ON CACHE BOOL "" FORCE)
-
-if (ANDROID)
-  set(protobuf_WITH_ZLIB OFF CACHE BOOL "Build protobuf with zlib support" FORCE)
+# Check if Protobuf is already available (e.g., from system installation or other dependencies)
+find_package(Protobuf QUIET)
+if(NOT Protobuf_FOUND)
+  find_package(protobuf QUIET)
 endif()
 
-if (onnxruntime_DISABLE_RTTI)
-  set(protobuf_DISABLE_RTTI ON CACHE BOOL "Remove runtime type information in the binaries" FORCE)
+if(Protobuf_FOUND OR protobuf_FOUND)
+    message(STATUS "Using system Protobuf: ${Protobuf_VERSION}")
+    if(protobuf_FOUND AND NOT Protobuf_FOUND)
+        set(Protobuf_FOUND TRUE)
+        set(Protobuf_VERSION ${protobuf_VERSION})
+    endif()
+else()
+    #Protobuf depends on absl and utf8_range
+    FetchContent_Declare(
+      Protobuf
+      URL ${DEP_URL_protobuf}
+      URL_HASH SHA1=${DEP_SHA1_protobuf}
+      PATCH_COMMAND ${ONNXRUNTIME_PROTOBUF_PATCH_COMMAND}
+      FIND_PACKAGE_ARGS NAMES Protobuf protobuf
+    )
+
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build protobuf tests" FORCE)
+    #TODO: we'd better to turn the following option off. However, it will cause
+    # ".\build.bat --config Debug --parallel --skip_submodule_sync --update" fail with an error message:
+    # install(EXPORT "ONNXTargets" ...) includes target "onnx_proto" which requires target "libprotobuf-lite" that is
+    # not in any export set.
+    #set(protobuf_INSTALL OFF CACHE BOOL "Install protobuf binaries and files" FORCE)
+    set(protobuf_USE_EXTERNAL_GTEST ON CACHE BOOL "" FORCE)
+
+    if (ANDROID)
+      set(protobuf_WITH_ZLIB OFF CACHE BOOL "Build protobuf with zlib support" FORCE)
+    endif()
+
+    if (onnxruntime_DISABLE_RTTI)
+      set(protobuf_DISABLE_RTTI ON CACHE BOOL "Remove runtime type information in the binaries" FORCE)
+    endif()
+
+    include(protobuf_function)
+    #protobuf end
+
+    onnxruntime_fetchcontent_makeavailable(Protobuf)
 endif()
-
-include(protobuf_function)
-#protobuf end
-
-onnxruntime_fetchcontent_makeavailable(Protobuf)
 if(Protobuf_FOUND)
-  message(STATUS "Protobuf version: ${Protobuf_VERSION}")
+  message(STATUS "Using protobuf from find_package(or vcpkg). Protobuf version: ${Protobuf_VERSION}")
 else()
   # Adjust warning flags
   if (TARGET libprotoc)

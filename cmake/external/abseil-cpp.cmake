@@ -18,21 +18,32 @@ if(WIN32 AND NOT Patch_FOUND)
   #see https://github.com/google/re2/issues/425 and https://github.com/google/re2/issues/436
   set(ABSL_ENABLE_INSTALL ON)
 endif()
-# NB! Advancing Abseil version changes its internal namespace,
-# currently absl::lts_20240116 which affects abseil-cpp.natvis debugger
-# visualization file, that must be adjusted accordingly, unless we eliminate
-# that namespace at build time.
-FetchContent_Declare(
-    abseil_cpp
-    URL ${DEP_URL_abseil_cpp}
-    URL_HASH SHA1=${DEP_SHA1_abseil_cpp}
-    PATCH_COMMAND ${ABSL_PATCH_COMMAND}
-    FIND_PACKAGE_ARGS 20240722 NAMES absl
-)
+# Check if absl is already available (e.g., from system installation or re2 dependency)
+find_package(absl QUIET)
+if(absl_FOUND)
+    message(STATUS "Using system Abseil-C++: ${absl_VERSION}")
+    set(abseil_cpp_FOUND TRUE)
+    set(abseil_cpp_VERSION ${absl_VERSION})
+    set(ABSEIL_SOURCE_DIR "")
+else()
+    # NB! Advancing Abseil version changes its internal namespace,
+    # currently absl::lts_20240116 which affects abseil-cpp.natvis debugger
+    # visualization file, that must be adjusted accordingly, unless we eliminate
+    # that namespace at build time.
+    FetchContent_Declare(
+        abseil_cpp
+        URL ${DEP_URL_abseil_cpp}
+        URL_HASH SHA1=${DEP_SHA1_abseil_cpp}
+        PATCH_COMMAND ${ABSL_PATCH_COMMAND}
+        FIND_PACKAGE_ARGS 20240722 NAMES absl
+    )
 
-onnxruntime_fetchcontent_makeavailable(abseil_cpp)
-FetchContent_GetProperties(abseil_cpp)
-set(ABSEIL_SOURCE_DIR ${abseil_cpp_SOURCE_DIR})
+    onnxruntime_fetchcontent_makeavailable(abseil_cpp)
+    FetchContent_GetProperties(abseil_cpp)
+endif()
+if(abseil_cpp_SOURCE_DIR)
+  set(ABSEIL_SOURCE_DIR ${abseil_cpp_SOURCE_DIR})
+endif()
 # abseil_cpp_SOURCE_DIR is non-empty if we build it from source
 message(STATUS "Abseil source dir:" ${ABSEIL_SOURCE_DIR})
 # abseil_cpp_VERSION  is non-empty if we find a preinstalled ABSL
